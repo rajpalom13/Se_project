@@ -1,0 +1,545 @@
+Singular Column 
+
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+void removeSpaces(char *str) {
+    int i, j = 0;
+    for (i = 0; str[i]; i++)
+        if (str[i] != ' ')
+            str[j++] = str[i];
+    str[j] = '\0';
+}
+
+void getKeyOrder(char *key, int *order) {
+    int len = strlen(key);
+    int used[20] = {0};
+
+    for (int i = 0; i < len; i++) {
+        int rank = 1;
+        for (int j = 0; j < len; j++) {
+            if (key[j] < key[i])
+                rank++;
+            else if (key[j] == key[i] && j < i)
+                rank++;
+        }
+        order[i] = rank;
+    }
+}
+
+void encrypt(char *plaintext, char *key) {
+    removeSpaces(plaintext);
+
+    int plen = strlen(plaintext);
+    int klen = strlen(key);
+
+    int rows = (plen + klen - 1) / klen;  // ceiling
+
+    char matrix[20][20];
+    int idx = 0;
+
+    // Fill the matrix row-wise
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < klen; c++) {
+            if (idx < plen)
+                matrix[r][c] = plaintext[idx++];
+            else
+                matrix[r][c] = 'X';  // padding
+        }
+    }
+
+    int order[20];
+    getKeyOrder(key, order);
+
+    printf("\nCiphertext: ");
+
+    // Read columns in alphabetical order of key
+    for (int num = 1; num <= klen; num++) {
+        for (int c = 0; c < klen; c++) {
+            if (order[c] == num) {
+                for (int r = 0; r < rows; r++)
+                    printf("%c", matrix[r][c]);
+            }
+        }
+    }
+    printf("\n");
+}
+
+void decrypt(char *ciphertext, char *key) {
+    int clen = strlen(ciphertext);
+    int klen = strlen(key);
+    int rows = clen / klen;
+
+    char matrix[20][20];
+    int order[20];
+    getKeyOrder(key, order);
+
+    int idx = 0;
+
+    // Fill column by column according to key order
+    for (int num = 1; num <= klen; num++) {
+        for (int c = 0; c < klen; c++) {
+            if (order[c] == num) {
+                for (int r = 0; r < rows; r++) {
+                    matrix[r][c] = ciphertext[idx++];
+                }
+            }
+        }
+    }
+
+    printf("\nDecrypted text: ");
+    for (int r = 0; r < rows; r++)
+        for (int c = 0; c < klen; c++)
+            printf("%c", matrix[r][c]);
+
+    printf("\n");
+}
+
+int main() {
+    char plaintext[100], key[20], ciphertext[100];
+
+    printf("Enter plaintext: ");
+    fgets(plaintext, sizeof(plaintext), stdin);
+    plaintext[strcspn(plaintext, "\n")] = '\0';
+
+    printf("Enter key: ");
+    scanf("%s", key);
+
+    encrypt(plaintext, key);
+
+    printf("\nEnter ciphertext to decrypt: ");
+    scanf("%s", ciphertext);
+
+    decrypt(ciphertext, key);
+
+    return 0;
+}
+
+
+
+Playfair cipher
+def generate_key_matrix(key):
+    key = key.upper().replace("J", "I")
+    matrix = []
+    used = set()
+
+    for char in key:
+        if char.isalpha() and char not in used:
+            used.add(char)
+            matrix.append(char)
+
+    for char in "ABCDEFGHIKLMNOPQRSTUVWXYZ":  # Note: J removed
+        if char not in used:
+            used.add(char)
+            matrix.append(char)
+
+    return [matrix[i:i+5] for i in range(0, 25, 5)]
+
+
+def find_position(matrix, letter):
+    for i in range(5):
+        for j in range(5):
+            if matrix[i][j] == letter:
+                return i, j
+    return None
+
+
+def prepare_text(text):
+    text = text.upper().replace(" ", "").replace("J", "I")
+    prepared = []
+
+    i = 0
+    while i < len(text):
+        a = text[i]
+
+        if i + 1 < len(text):
+            b = text[i + 1]
+            if a == b:
+                prepared.append(a + "X")
+                i += 1
+            else:
+                prepared.append(a + b)
+                i += 2
+        else:
+            prepared.append(a + "X")
+            i += 1
+
+    return prepared
+
+
+def encrypt_pair(a, b, matrix):
+    r1, c1 = find_position(matrix, a)
+    r2, c2 = find_position(matrix, b)
+
+    if r1 == r2:
+        # Same row → shift right
+        return matrix[r1][(c1 + 1) % 5] + matrix[r2][(c2 + 1) % 5]
+
+    elif c1 == c2:
+        # Same column → shift down
+        return matrix[(r1 + 1) % 5][c1] + matrix[(r2 + 1) % 5][c2]
+
+    else:
+        # Rectangle rule → swap columns
+        return matrix[r1][c2] + matrix[r2][c1]
+
+
+def playfair_encrypt(key, plaintext):
+    matrix = generate_key_matrix(key)
+    prepared = prepare_text(plaintext)
+
+    encrypted = ""
+    for pair in prepared:
+        encrypted += encrypt_pair(pair[0], pair[1], matrix)
+
+    return encrypted, matrix
+
+
+# ----------------------- TEST ----------------------- #
+key = "MONARCHY"
+plaintext = "INSTRUMENTS"
+
+cipher, matrix = playfair_encrypt(key, plaintext)
+
+print("Key Matrix:")
+for row in matrix:
+    print(row)
+
+print("\nCiphertext:", cipher)
+
+
+RSA
+#include <stdio.h>
+
+long long power(long long a, long long b, long long n) {
+    long long result = 1;
+    while (b > 0) {
+        result = (result * a) % n;
+        b--;
+    }
+    return result;
+}
+
+int main() {
+    // Step 1: Pick small prime numbers
+    long long p = 61;
+    long long q = 53;
+
+    // Step 2: Compute n and phi(n)
+    long long n = p * q;                // 3233
+    long long phi = (p - 1) * (q - 1);  // 3120
+
+    // Step 3: Choose public key e (commonly 17)
+    long long e = 17;
+
+    // Step 4: Compute private key d such that (d*e) % phi = 1
+    long long d = 2753;  // Pre-calculated for simplicity
+
+    // Message
+    long long msg = 65; // 'A'
+
+    // Encrypt: c = msg^e % n
+    long long encrypted = power(msg, e, n);
+
+    // Decrypt: m = c^d % n
+    long long decrypted = power(encrypted, d, n);
+
+    printf("Public Key (e,n)  = (%lld, %lld)\n", e, n);
+    printf("Private Key (d,n) = (%lld, %lld)\n", d, n);
+
+    printf("Original Message: %lld\n", msg);
+    printf("Encrypted: %lld\n", encrypted);
+    printf("Decrypted: %lld\n", decrypted);
+
+    return 0;
+}
+
+
+
+
+UCS550- Network Defence
+List of Lab Experiments
+ASSIGNMENT-1
+Network attack and defense strategies
+1. Understanding the Workings of SQL Injection Attacks
+Experiment Objective: This experiment will demonstrate how attackers attack a target
+website using SQL injection. It will help the network defender to understand the
+workings of this attack.
+2. Understanding the Workings of XSS Attacks
+Experiment Objective: This lab will demonstrate how an attacker can initiate an XSS
+attack on the target website.
+3. Understanding the Workings of Network Scanning Attacks
+Experiment Objective:
+This lab will demonstrate how the attacker runs various network scan attempts to find
+open ports and services running on the target.
+ SYN scan attempt
+ TCP full connect scan attempt
+ TCP null scan attempt
+ TCP Xmas scan attempt
+ FIN scan attempt
+ UDP scan attempt
+4. Understanding the Workings of Brute-Force Attacks
+Experiment Objective: This lab will demonstrate how an attacker performs a brute-
+force attack on the target system using the Hydra tool.
+ASSIGNMENT-2
+Administrative network security
+1. Implementing Password Policies Using Windows Group Policy
+Experiment Objective: This lab demonstrates how to create a GPO from the
+GPMC; this group policy will implement a common password policy to enable the
+use of complex and lengthy passwords in the AD domain.
+2. Implementing Password Policies in Linux
+Experiment Objective: The objective of this lab is to set up a strong password
+policy on Ubuntu. By default, the minimum password length in a Linux system is
+six characters. The following password policies can be implemented in Linux:
+ Minimum password age
+ Maximum password age
+ Password history
+ Minimum password length
+ Use uppercase characters
+ Use lowercase characters
+ Using minimum digits in the password
+ Password warning
+ Password retry
+3. Monitoring Activities on a Remote User System
+Experiment Objective: The objective of this lab is to demonstrate how to monitor
+user activities remotely using Spytech SpyAgent. In this lab, you will
+ Understand the process of monitoring employee activities using Spytech
+SpyAgent
+4. Asset Discovery using Lansweeper
+Experiment Objective: This lab demonstrates the management of devices over a
+common network and fetching information regarding any vulnerabilities in either
+of the devices for mitigation purposes.
+5. Create and Link a Group Policy Object in Active Directory
+Experiment Objective: This lab demonstrates the management of Administration
+privileges in Active Directory among the users and ensures that users do not have
+escalated access to avoid breaches of data over the same network.
+ASSIGNMENT-3
+Technical network security
+1. Implementing Just Enough Administration to Secure Privileged Access
+Experiment Objective: This lab will demonstrate how to create JEA session files
+to restrict non-admin users in executing selected PowerShell cmdlets with limited
+scope for appropriate Active Directory (AD) access.
+2. Implementing Role-Based Access Control using Windows Admin Center
+Experiment Objective: This lab will demonstrate how to install WAC and
+configure RBAC in WAC to restrict user activities.
+3. Establishing Virtual Private Network Connection using SoftEther VPN
+Experiment Objective: This lab will demonstrate how to establish a Virtual
+Private Network (VPN) connection using SoftEther VPN.
+4. Configuring Rule-based Access Control using ADManager's User Creation
+Template
+Experiment Objective: This lab will demonstrate how to create rules and apply
+restrictions for organizational users.
+ASSIGNMENT-4
+Network perimeter security
+1. Implementing Network-Based Firewall Functionality: Blocking Unwanted
+Website access using pfSense Firewall
+Experiment Objective: The lab will demonstrate how to use the pfSense firewall
+alias to block access to unwanted websites. If we implement one rule per host, the
+number of rules will be greater and more difficult to manage. Using an alias for
+multiple hosts requires the use of only one rule.
+2. Implementing Network-Based Firewall Functionality: Blocking Insecure Ports
+using pfSense Firewall
+Experiment Objective: This lab will demonstrate how to block insecure ports
+using the pfSense firewall and protect endpoints within the network using the
+pfSense firewall.
+3. Implementing Network-Based Firewall Functionality: Blocking Internal FTP
+Server Access Using Smoothwall Firewall
+Experiment Objective: This lab will demonstrate blocking internal FTP server
+Access using the Smoothwall firewall.
+4. Implementing Host-based Firewall Functionality Using Windows Firewall
+Experiment Objective: This lab will demonstrate how to secure an individual
+endpoint within the network. In this lab, you will learn how to do the following:
+ Hardening the host within the network
+ Applying rules in a host-based firewall
+ASSIGNMENT-5
+Endpoint security-Windows systems
+1. Basic Network Administration and Troubleshooting Using Windows Command-
+Line Utilities
+Experiment Objective: This lab demonstrates the use of basic Windows Command-
+line utilities to perform network troubleshooting.
+2. Securing Windows File Share in Active Directory
+Experiment Objective: This lab will demonstrate how to apply for share folder
+permission in the AD Domain Controller and allow the user to access specific files.
+3. Analyzing Security Configuration Baseline Using Microsoft Security Compliance
+Toolkit in Windows
+Experiment Objective: This lab will demonstrate how to use the MSCT tool to check
+for security configuration baseline on a Windows system. In this lab, you will learn to
+do the following:
+ Download the Security Compliance Toolkit (SCT) from Microsoft downloads
+ Analyze Windows Server 2019 OS.
+4. Remote Patch Management using ManageEngine Patch Manager Plus
+Experiment Objective: This lab will demonstrate how to install and configure a log
+forwarder to capture remote system logs.
+ASSIGNMENT-6
+Endpoint security-Linux systems
+1. Implementing Linux Security Best Practices
+Experiment Objective: This lab will demonstrate some Linux security best practices.
+In this lab, you will learn to do the following:
+ Disable unnecessary services on Linux computers
+ Remove or uninstall unnecessary software/packages
+ Restrict Secure Shell (SSH) Remote Login
+2. Implementing Name-based Mandatory Access Controls Using AppArmor
+Experiment Objective: This lab will demonstrate how to use AppArmor to restrict
+access to a specific command.
+In this lab, you will learn to do the following:
+ Installation of AppArmor
+ Creating a profile to restrict ping commands
+3. Linux Security Auditing and System Hardening Using Lynis
+Experiment Objective: This lab will demonstrate how to use Lynis tool in a Linux
+OS.
+4. Implementing Password Aging in Linux
+Experiment Objective: This lab demonstrates how to implement password aging to
+secure Linux by reducing the vulnerability of password-based attacks and exploit.
+ASSIGNMENT-7
+Endpoint security-mobile devices
+1. Implementing Enterprise Mobile Security Using Miradore MDM Solution
+Experiment Objective: The objective of this lab is to demonstrate how to implement
+the MDM solution. In this lab, you will learn to:
+ Install Miradore online cloud-based MDM solution
+ Install Miradore Online Client on Android device
+ Enroll device to Miradore account as a User device
+ Lock a lost device.
+2. Securing Mobile Devices using Emsisoft
+Experiment Objective: The objective of this lab is to demonstrate how to enable
+services to secure mobile devices. In this lab, you will learn to do the following:
+ Activate web protection for safe browsing
+ Scan device storage for threats
+ Lock the access to apps using App Lock
+ Implement anti-theft measures
+ Secure account privacy
+3. Implementing Bitdefender for Securing Mobile Device
+Experiment Objective: The objective of this lab is to demonstrate how to enable the
+services to secure the mobile device. In this lab, you will learn to do the following:
+ Activate web protection for safe browsing
+ Scan device storage for threats
+ Adding the device to Bitdefender Central for better device tracking and recovery
+ Removing malware from the device using the services the software provides
+ASSIGNMENT-8
+Endpoint security-IoT devices
+1. Securing IoT Device Communication Using TLS/SSL
+Experiment Objective: The objective of this lab is to demonstrate how to secure
+Internet of things (IoT) device communication using the Bevywise message queuing
+telemetry transport (MQTT) Broker and Simulator. This tool demonstrates the use of
+IoT devices over the virtual network. In this lab, you will learn to:
+ Install and configure the Bevywise MQTT Broker.
+ Implement transport layer security (TLS)/secure sockets layer (SSL) to secure
+IoT communication.
+ASSIGNMENT-9
+Administrative application security
+2. Implementing Application Whitelisting Using AppLocker
+Experiment Objective: This lab aims to deploy application whitelisting on the domain
+network using group policy.
+3. Implementing Application Whitelisting using Software Restriction Policies
+Experiment Objective: This lab aims to demonstrate how to administer application
+control policies using SRP.
+4. Implementing Application Security Using Firejail Sandbox
+Experiment Objective: This lab aims to demonstrate how to use Firejail to run
+applications in a limited environment. In this lab, we will learn how to:
+ Install Firejail
+ Install Firetool, a graphical user interface (GUI) tool, for Firejail
+ Run an application in Firejail
+5. Preventing Application-Level Attacks Using Microsoft URLScan Web
+Application Firewall
+Experiment Objective: This lab aims to explain how to use the Microsoft URLScan
+Web Application Firewall (WAF) to prevent various application attacks.
+ASSIGNMENT-10
+Data security
+1. Encrypting Data at Rest Using VeraCrypt
+Experiment Objective: VeraCrypt is a software application used for on-the-fly
+encryption (OTFE). It is distributed without cost, and the source code is available. It
+can create a virtual encrypted disk within a file, or encrypt a partition or an entire
+storage device.
+2. Implementing Always Encrypted in SQL Server
+Experiment Objective: This lab aims to demonstrate how to implement the Always
+Encrypted feature in the SQL Server.
+3. Encrypting Data in Transit Using SSL
+Experiment Objective: The objective of this lab is to demonstrate how to enable SSL
+on a website to transfer data over a secure channel. In this lab, you will learn to:
+ Build an http website (WordPress)
+ Provide SSL encryption to a website implemented on HTTP
+4. Performing Data Backup Using AOMEI Backupper Standard
+Experiment Objective: The objective of the lab is to demonstrate how to perform a
+data backup.
+5. File Recovery Using EaseUS Data Recovery Wizard
+Experiment Objective: The objective of this lab is to demonstrate how to use EaseUS
+Data Recovery Wizard, by intentionally deleting a few files and, subsequently,
+recovering them.
+ASSIGNMENT-11
+Footprinting and reconnaissance
+1. Perform Footprinting Through Search Engines and Web Services
+Experiment Objective:
+ Gather information using advanced Google hacking techniques
+ Gather information from video search engines
+ Gather information from FTP search engines
+ Find the company’s domains and sub-domains using Netcraft
+ Gather personal information using PeekYou online people search service
+2. Perform Footprinting Through Social Networking Sites
+Experiment Objective: Gather employees’ information from LinkedIn using the
+Harvester
+3. Perform Email, Whois, and DNS Footprinting
+Experiment Objective:
+ Gather information about a target by tracing emails using eMailTrackerPro
+ Perform Whois lookup using DomainTools
+ Gather DNS information using nslookup command line utility and online tool
+4. Perform Network Footprinting
+Experiment Objective:
+ Locate the network range
+ Perform network tracerouting in Windows and Linux Machines
+ASSIGNMENT-12
+Scanning networks
+1. Perform Host Discovery
+Experiment Objective:
+ Perform host discovery using Nmap
+ Perform host discovery using Angry IP Scanner
+2. Perform Port, Service, and OS Discovery
+Experiment Objective:
+ Perform port and service discovery using MegaPing
+ Perform port and service discovery using NetScanTools Pro
+ Perform port scanning using sx tool
+ Explore various network scanning techniques using Nmap
+ Identify the target system’s OS with Time-to-Live (TTL) and TCP window
+sizes using Wireshark
+ Perform OS discovery using Nmap Script Engine (NSE)
+3. Scan beyond IDS and Firewall
+Experiment Objective:
+ Scan beyond IDS/firewall using various evasion techniques
+ Create custom packets using Colasoft Packet Builder to scan beyond the
+IDS/firewall
+4. Perform Network Scanning using Various Scanning Tools
+Experiment Objective: Scan a target network using Metasploit
+ASSIGNMENT-13
+Enumeration
+1. Perform NetBIOS Enumeration
+Experiment Objective:
+ Perform NetBIOS enumeration using Windows command-line utilities
+ Perform NetBIOS enumeration using NetBIOS Enumerator
+ Perform NetBIOS enumeration using an NSE Script
+2. Perform SNMP and NFS Enumeration
+Experiment Objective:
+ Perform SNMP enumeration using snmp-check
+ Perform SNMP enumeration using SoftPerfect Network Scanner
+ Perform SNMP enumeration using SnmpWalk
+ Perform NFS enumeration using RPCScan and SuperEnum
+3. Perform SMTP Enumeration
+Experiment Objective:
+ Perform SMTP enumeration using Nmap
+4. Perform RPC and FTP Enumeration
+Experiment Objective:
+ Perform SMB and RPC enumeration using NetScanTools Pro
+ Perform RPC, SMB, and FTP enumeration using Nmap
+ASSIGNMENT-14
+Vulnerability analysis
+1. Perform Vulnerability Research with Vulnerability Scoring Systems and
+Databases
+Experiment Objective:
+ Perform vulnerability research in Common Weakness Enumeration (CWE)
+ Perform vulnerability research in Common Vulnerabilities and Exposures
+(CVE)
+ Perform vulnerability research in National Vulnerability Database (NVD)
+2. Perform Vulnerability Assessment using Various Vulnerability Assessment Tools
+Experiment Objective:
+ Perform vulnerability analysis using OpenVAS
+ Perform vulnerability scanning using Nessus
+ Perform web servers and applications vulnerability scanning using CGI Scanner
+Nikto
