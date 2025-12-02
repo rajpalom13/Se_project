@@ -52,9 +52,10 @@ app.set('io', io);
 
 // Middleware
 app.use(cors({
-  origin: *,
+  origin: "*",
   credentials: true
-));
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
